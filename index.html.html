@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FMCG Warehouse Supply-Demand Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #F7F9FC;
+      --surface:   #FFFFFF;
+      --surface2:  #EFF2F7;
+      --border:    rgba(0,0,0,0.09);
+      --text:      #1A1D23;
+      --text2:     #5C6370;
+      --text3:     #8B92A0;
+      --blue:      #378ADD;
+      --teal:      #1D9E75;
+      --coral:     #D85A30;
+      --purple:    #534AB7;
+      --amber:     #BA7517;
+      --red:       #E24B4A;
+      --red-dark:  #A32D2D;
+      --radius:    10px;
+      --radius-lg: 14px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:      #0F1117;
+        --surface: #1A1D26;
+        --surface2:#23273A;
+        --border:  rgba(255,255,255,0.08);
+        --text:    #E8ECF4;
+        --text2:   #8B92A8;
+        --text3:   #5C6370;
+        --blue:    #5BA3E8;
+        --teal:    #3ABFA0;
+        --coral:   #E87A52;
+        --purple:  #7F77DD;
+        --amber:   #EF9F27;
+        --red:     #F09595;
+        --red-dark:#F09595;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 28px 32px 48px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .header-left p.sub {
+      font-size: 12px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      margin-bottom: 4px;
+    }
+    .header-left h1 {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .header-right {
+      font-size: 12px;
+      color: var(--text3);
+      text-align: right;
+      line-height: 1.6;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--surface2);
+      border: 0.5px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 4px;
+    }
+
+    /* ── Z-shape label ── */
+    .z-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .z-label::before {
+      content: '';
+      display: inline-block;
+      width: 18px;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── KPI row ── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .kpi-card {
+      background: var(--surface2);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      border: 0.5px solid var(--border);
+    }
+    .kpi-card.accent-red  { border-left: 3px solid var(--red); }
+    .kpi-card.accent-teal { border-left: 3px solid var(--teal); }
+    .kpi-label {
+      font-size: 10px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 6px;
+    }
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1;
+    }
+    .kpi-value.danger { color: var(--red-dark); }
+    .kpi-value span.unit { font-size: 13px; font-weight: 400; color: var(--text2); margin-left: 2px; }
+    .kpi-meta {
+      font-size: 10px;
+      color: var(--text3);
+      margin-top: 6px;
+    }
+
+    /* ── Chart cards ── */
+    .card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .card-sub {
+      font-size: 10px;
+      color: var(--text3);
+      margin-bottom: 12px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      color: var(--text2);
+    }
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    /* ── Mid row ── */
+    .mid-row {
+      display: grid;
+      grid-template-columns: minmax(0,1.65fr) minmax(0,1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Bottom row ── */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 12px;
+    }
+
+    /* ── Z-path annotation ── */
+    .z-footer {
+      margin-top: 16px;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      border: 0.5px solid var(--border);
+      font-size: 11px;
+      color: var(--text3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .z-icon {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text3);
+      font-style: italic;
+    }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .filter-bar label {
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .filter-bar select {
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 0.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      outline: none;
+    }
+    .filter-bar select:focus {
+      border-color: var(--blue);
+    }
+    .filter-reset {
+      font-size: 12px;
+      color: var(--blue);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 16px; }
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .mid-row, .bottom-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── HEADER ── -->
+  <div class="header">
+    <div class="header-left">
+      <p class="sub">FMCG Instant Noodles · Supply Optimization</p>
+      <h1>Warehouse demand &amp; supply dashboard</h1>
+    </div>
+    <div class="header-right">
+      25,000 warehouses · April 2026<br>
+      Model: Gradient Boosting R² = 0.9945<br>
+      <span class="badge">Z-shape layout</span>
+    </div>
+  </div>
+
+  <!-- ── FILTER BAR ── -->
+  <div class="filter-bar">
+    <label>Filter zone:</label>
+    <select id="zoneFilter">
+      <option value="all">All zones</option>
+      <option value="East">East</option>
+      <option value="North">North</option>
+      <option value="West">West</option>
+      <option value="South">South</option>
+    </select>
+    <label>Capacity:</label>
+    <select id="capFilter">
+      <option value="all">All sizes</option>
+      <option value="Large">Large</option>
+      <option value="Mid">Mid</option>
+      <option value="Small">Small</option>
+    </select>
+    <button class="filter-reset" onclick="resetFilters()">Reset filters</button>
+  </div>
+
+  <!-- ══ Z-PATH 1: KPI CARDS ══ -->
+  <div class="z-label">Z · row 1 — key metrics</div>
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-label">Total warehouses</div>
+      <div class="kpi-value" id="kpiTotal">25,000</div>
+      <div class="kpi-meta">source: Ware_house_ID count</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg shipment / WH</div>
+      <div class="kpi-value" id="kpiAvg">22,103 <span class="unit">ton</span></div>
+      <div class="kpi-meta">source: mean(product_wg_ton)</div>
+    </div>
+    <div class="kpi-card accent-red">
+      <div class="kpi-label">Need optimization</div>
+      <div class="kpi-value danger" id="kpiNeed">23.3%</div>
+      <div class="kpi-meta" id="kpiNeedSub">5,809 WH · deviation analysis</div>
+    </div>
+    <div class="kpi-card accent-teal">
+      <div class="kpi-label">Top demand zone</div>
+      <div class="kpi-value" id="kpiTopZone">East</div>
+      <div class="kpi-meta" id="kpiTopZoneSub">22,721 ton avg · zone × product_wg_ton</div>
+    </div>
+  </div>
+
+  <!-- ══ Z-PATH 2: MID ROW ══ -->
+  <div class="z-label">Z · row 2 — zone & capacity</div>
+  <div class="mid-row">
+    <div class="card">
+      <div class="card-title">Avg shipment by zone</div>
+      <div class="card-sub">data: zone × mean(product_wg_ton)</div>
+      <div class="legend">
+        <span><span class="dot" style="background:#378ADD"></span>East</span>
+        <span><span class="dot" style="background:#1D9E75"></span>North</span>
+        <span><span class="dot" style="background:#D85A30"></span>West</span>
+        <span><span class="dot" style="background:#7F77DD"></span>South</span>
+      </div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="zoneChart" role="img" aria-label="Bar chart of average shipment by zone">East 22,721 · North 22,199 · West 22,079 · South 21,933 tons</canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Warehouse capacity mix</div>
+      <div class="card-sub">data: WH_capacity_size value counts</div>
+      <div class="legend">
+        <span><span class="dot" style="background:#378ADD"></span>Large 40.7%</span>
+        <span><span class="dot" style="background:#1D9E75"></span>Mid 40.1%</span>
+        <span><span class="dot" style="background:#D85A30"></span>Small 19.2%</span>
+      </div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="capChart" role="img" aria-label="Donut chart of warehouse capacity distribution">Large 40.7% · Mid 40.1% · Small 19.2%</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Z-PATH 3: BOTTOM ROW ══ -->
+  <div class="z-label">Z · row 3 — operational detail</div>
+  <div class="bottom-row">
+    <div class="card">
+      <div class="card-title">Transport issues vs avg supply</div>
+      <div class="card-sub">data: transport_issue_l1y × mean(product_wg_ton)</div>
+      <div class="legend">
+        <span><span class="dot" style="background:#BA7517"></span>Avg ton shipped</span>
+      </div>
+      <div class="chart-wrap" style="height:190px;">
+        <canvas id="transportChart" role="img" aria-label="Bar chart showing avg supply decreases as transport issues increase">0–5 transport issues vs avg supply in tons</canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Supply by location &amp; ownership</div>
+      <div class="card-sub">data: Location_type, wh_owner_type × mean(product_wg_ton)</div>
+      <div class="legend">
+        <span><span class="dot" style="background:#534AB7"></span>Avg ton</span>
+      </div>
+      <div class="chart-wrap" style="height:190px;">
+        <canvas id="locChart" role="img" aria-label="Horizontal bar chart comparing avg supply across location types and ownership">Urban · Rural · Company Owned · Rented</canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Supply optimization status</div>
+      <div class="card-sub">data: deviation (predicted − actual) per WH</div>
+      <div class="legend">
+        <span><span class="dot" style="background:#1D9E75"></span>Optimal 76.8%</span>
+        <span><span class="dot" style="background:#378ADD"></span>Increase 12.6%</span>
+        <span><span class="dot" style="background:#E24B4A"></span>Reduce 10.7%</span>
+      </div>
+      <div class="chart-wrap" style="height:190px;">
+        <canvas id="statusChart" role="img" aria-label="Donut chart: Optimal 76.8%, Increase supply 12.6%, Reduce supply 10.7%">Optimal 76.8% · Increase 12.6% · Reduce 10.7%</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Z-footer ── -->
+  <div class="z-footer">
+    <span class="z-icon">Z</span>
+    <span>Reading flow: KPI summary (top) → Zone &amp; Capacity analysis (mid) → Operational &amp; Optimization detail (bottom) · Model: Gradient Boosting · MAE 648 ton · CV R² 0.9944</span>
+  </div>
+
+  <script>
+    const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const textCol  = isDark ? '#8B92A8' : '#5C6370';
+    const gridCol  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+
+    // ── Raw data per zone & capacity ──
+    const zoneData = {
+      East:  { avg: 22721, wh: 429,   optimal: 330, increase: 54,  reduce: 45 },
+      North: { avg: 22199, wh: 10278, optimal: 7893, increase: 1297, reduce: 1088 },
+      West:  { avg: 22079, wh: 7931,  optimal: 6091, increase: 1000, reduce: 840 },
+      South: { avg: 21933, wh: 6362,  optimal: 4877, increase: 787,  reduce: 698 },
+    };
+    const capData = {
+      Large: { wh: 10169 },
+      Mid:   { wh: 10020 },
+      Small: { wh: 4811  },
+    };
+    const allZones = ['East','North','West','South'];
+    const zoneColors = { East:'#378ADD', North:'#1D9E75', West:'#D85A30', South:'#7F77DD' };
+
+    let activeZone = 'all';
+    let activeCap  = 'all';
+
+    // Chart instances
+    let zoneChart, capChart, transportChart, locChart, statusChart;
+
+    function buildZoneChart(filteredZones) {
+      if (zoneChart) zoneChart.destroy();
+      const labels = filteredZones;
+      const data   = labels.map(z => zoneData[z].avg);
+      const colors = labels.map(z => zoneColors[z]);
+      zoneChart = new Chart(document.getElementById('zoneChart'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 5, borderSkipped: false }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.y.toLocaleString() + ' ton avg' } } },
+          scales: {
+            x: { grid: { color: gridCol }, ticks: { color: textCol, font: { size: 12 } } },
+            y: { min: 21000, grid: { color: gridCol }, ticks: { color: textCol, font: { size: 11 }, callback: v => v.toLocaleString() } }
+          }
+        }
+      });
+    }
+
+    function buildCapChart(filteredCap) {
+      if (capChart) capChart.destroy();
+      const labels = filteredCap;
+      const data   = labels.map(c => capData[c].wh);
+      const colors = { Large:'#378ADD', Mid:'#1D9E75', Small:'#D85A30' };
+      const total  = data.reduce((a,b)=>a+b,0);
+      capChart = new Chart(document.getElementById('capChart'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: labels.map(c=>colors[c]), hoverOffset: 8, borderWidth: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '62%',
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + ctx.parsed.toLocaleString() + ' WH (' + ((ctx.parsed/total)*100).toFixed(1) + '%)' } } }
+        }
+      });
+    }
+
+    function buildStatusChart(filteredZones) {
+      if (statusChart) statusChart.destroy();
+      let opt=0, inc=0, red=0;
+      filteredZones.forEach(z => { opt += zoneData[z].optimal; inc += zoneData[z].increase; red += zoneData[z].reduce; });
+      const total = opt+inc+red;
+      statusChart = new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: { labels:['Optimal','Increase supply','Reduce supply'], datasets:[{ data:[opt,inc,red], backgroundColor:['#1D9E75','#378ADD','#E24B4A'], hoverOffset:8, borderWidth:0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '62%',
+          plugins: { legend:{display:false}, tooltip:{callbacks:{label: ctx => ' '+ctx.label+': '+ctx.parsed.toLocaleString()+' WH ('+((ctx.parsed/total)*100).toFixed(1)+'%)'}}}
+        }
+      });
+
+      // Update KPI need
+      const needPct = ((inc+red)/total*100).toFixed(1);
+      document.getElementById('kpiNeed').innerHTML = needPct + '%';
+      document.getElementById('kpiNeedSub').textContent = (inc+red).toLocaleString() + ' WH · deviation analysis';
+      document.getElementById('kpiTotal').textContent = total.toLocaleString();
+      const avgTon = Math.round(filteredZones.reduce((s,z)=>s+zoneData[z].avg*zoneData[z].wh,0) / filteredZones.reduce((s,z)=>s+zoneData[z].wh,0));
+      document.getElementById('kpiAvg').innerHTML = avgTon.toLocaleString() + ' <span class="unit">ton</span>';
+      const topZone = filteredZones.reduce((a,b) => zoneData[a].avg > zoneData[b].avg ? a : b);
+      document.getElementById('kpiTopZone').textContent = topZone;
+      document.getElementById('kpiTopZoneSub').textContent = zoneData[topZone].avg.toLocaleString() + ' ton avg · zone × product_wg_ton';
+    }
+
+    function buildTransportChart() {
+      if (transportChart) transportChart.destroy();
+      transportChart = new Chart(document.getElementById('transportChart'), {
+        type: 'bar',
+        data: {
+          labels: ['0 issues','1','2','3','4','5'],
+          datasets: [{ data:[22800,21500,19200,17100,15600,14200], backgroundColor:'#BA7517', borderRadius:5, borderSkipped:false }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend:{display:false}, tooltip:{callbacks:{label: ctx=>' '+ctx.parsed.y.toLocaleString()+' ton'}}},
+          scales: {
+            x: { grid:{color:gridCol}, ticks:{color:textCol, font:{size:11}}},
+            y: { min:12000, grid:{color:gridCol}, ticks:{color:textCol, font:{size:11}, callback: v=>(v/1000).toFixed(0)+'k'}}
+          }
+        }
+      });
+    }
+
+    function buildLocChart() {
+      if (locChart) locChart.destroy();
+      locChart = new Chart(document.getElementById('locChart'), {
+        type: 'bar',
+        indexAxis: 'y',
+        data: {
+          labels: ['Urban','Rural','Company Owned','Rented'],
+          datasets: [{ data:[22437,21998,22110,22095], backgroundColor:['#534AB7','#7F77DD','#378ADD','#85B7EB'], borderRadius:5, borderSkipped:false }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend:{display:false}, tooltip:{callbacks:{label: ctx=>' '+ctx.parsed.x.toLocaleString()+' ton'}}},
+          scales: {
+            x: { min:21500, grid:{color:gridCol}, ticks:{color:textCol, font:{size:11}, callback: v=>(v/1000).toFixed(0)+'k'}},
+            y: { grid:{color:gridCol}, ticks:{color:textCol, font:{size:11}}}
+          }
+        }
+      });
+    }
+
+    function applyFilters() {
+      const filteredZones = activeZone === 'all' ? allZones : [activeZone];
+      const filteredCap   = activeCap  === 'all' ? ['Large','Mid','Small'] : [activeCap];
+      buildZoneChart(filteredZones);
+      buildCapChart(filteredCap);
+      buildStatusChart(filteredZones);
+    }
+
+    function resetFilters() {
+      activeZone = 'all'; activeCap = 'all';
+      document.getElementById('zoneFilter').value = 'all';
+      document.getElementById('capFilter').value  = 'all';
+      applyFilters();
+    }
+
+    document.getElementById('zoneFilter').addEventListener('change', e => { activeZone = e.target.value; applyFilters(); });
+    document.getElementById('capFilter').addEventListener('change',  e => { activeCap  = e.target.value; applyFilters(); });
+
+    // Initial render
+    applyFilters();
+    buildTransportChart();
+    buildLocChart();
+  </script>
+</body>
+</html>
